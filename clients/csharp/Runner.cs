@@ -24,22 +24,23 @@ namespace AiCup2019
         }
         public void Run()
         {
-            var myStrategy = new MyStrategy();
             var debug = new Debug(writer);
             while (true)
             {
                 Model.ServerMessageGame message = Model.ServerMessageGame.ReadFrom(reader);
+                
                 if (!message.PlayerView.HasValue)
-                {
                     break;
-                }
-                Model.PlayerView playerView = message.PlayerView.Value;
+                
+                var playerView = message.PlayerView.Value;
                 var actions = new Dictionary<int, Model.UnitAction>();
+                var myStrategy = new MyStrategy(playerView.Game, debug);
+
                 foreach (var unit in playerView.Game.Units)
                 {
                     if (unit.PlayerId == playerView.MyId)
                     {
-                        actions.Add(unit.Id, myStrategy.GetAction(unit, playerView.Game, debug));
+                        actions.Add(unit.Id, myStrategy.GetAction(unit));
                     }
                 }
                 new Model.PlayerMessageGame.ActionMessage(new Model.Versioned(actions)).WriteTo(writer);
