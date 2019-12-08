@@ -45,9 +45,9 @@ namespace AiCup2019
         public static Vec2Double AsHalf(this Vec2Double a, bool rightToLeft = false)
         {
             if (rightToLeft)
-                return new Vec2Double(a.X*2, a.Y*2);
+                return new Vec2Double(a.X*2, a.Y);
 
-            return new Vec2Double(a.X/2, a.Y/2);
+            return new Vec2Double(a.X/2, a.Y);
         }
 
         public static Line LineTo(this Vec2Double a, Vec2Double b)
@@ -197,20 +197,23 @@ namespace AiCup2019
             return nearestWeapon;
         }
 
-
         protected bool HasWallBetween(Vec2Double a, Vec2Double b)
         {
-            var diffX = Math.Abs(a.X - b.X);
+            var diffX = Math.Ceiling(Math.Abs(a.X - b.X));
 
-            if (a.X > b.X)
+            if (a.IsRightTo(b))
+            {
                 for (var i = 0; i < diffX; i++)
                     if (Game.Level.Tiles[(int)(b.X + i)][(int)(b.Y)] == Tile.Wall)
                         return true;
+            }
             else
+            {
                 for (var ij = 0; ij < diffX; ij++)
                     if (Game.Level.Tiles[(int)(b.X - ij)][(int)(b.Y)] == Tile.Wall)
                         return true;
 
+            }
             return false;
         }
 
@@ -276,21 +279,36 @@ namespace AiCup2019
             var healthPack = NearestHealthPack(unit);
 
             Vec2Double targetPos = unit.Position;
+            var jump = targetPos.Y > unit.Position.Y;
             if(healthPack.HasValue && unit.Health < Game.Properties.UnitMaxHealth*0.8)
             {
                 targetPos = healthPack.Value.Position;
+                if (targetPos.X > unit.Position.X && Game.Level.Tiles[(int)(unit.Position.X + 1)][(int)(unit.Position.Y)] == Tile.Wall)
+                    jump = true;
+                if (targetPos.X < unit.Position.X && Game.Level.Tiles[(int)(unit.Position.X - 1)][(int)(unit.Position.Y)] == Tile.Wall)
+                    jump = true;
             }
             else 
             {
                 if (!unit.Weapon.HasValue && nearestWeapon.HasValue)
                 {
                     targetPos = nearestWeapon.Value.Position;
+
+                    if (targetPos.X > unit.Position.X && Game.Level.Tiles[(int)(unit.Position.X + 1)][(int)(unit.Position.Y)] == Tile.Wall)
+                        jump = true;
+                    if (targetPos.X < unit.Position.X && Game.Level.Tiles[(int)(unit.Position.X - 1)][(int)(unit.Position.Y)] == Tile.Wall)
+                        jump = true;
                 }
                 else if (nearestEnemy.HasValue)
                 {
                     targetPos = nearestEnemy.Value.Position.AsHalf(
                         rightToLeft: nearestEnemy.Value.Position.IsLeftTo(unit.Position)
                     );
+                    
+                    if (nearestEnemy.Value.Position.X > unit.Position.X && Game.Level.Tiles[(int)(unit.Position.X + 1)][(int)(unit.Position.Y)] == Tile.Wall)
+                        jump = true;
+                    if (nearestEnemy.Value.Position.X < unit.Position.X && Game.Level.Tiles[(int)(unit.Position.X - 1)][(int)(unit.Position.Y)] == Tile.Wall)
+                        jump = true;
                 }
             }
 
@@ -299,7 +317,10 @@ namespace AiCup2019
                     ? Game.Properties.UnitMaxHorizontalSpeed 
                     : -Game.Properties.UnitMaxHorizontalSpeed;
 
-            var aim = nearestEnemy.HasValue ? unit.Position.AimAt(nearestEnemy.Value.Position) : new Vec2Double(0,0); 
+            var aim = 
+                nearestEnemy.HasValue 
+                    ? unit.Position.AimAt(nearestEnemy.Value.Position) 
+                    : new Vec2Double(0,0); 
 
             // Debug.Draw(
             //     new PlacedText(
@@ -311,9 +332,13 @@ namespace AiCup2019
             //     )
             // );
 
+
+            var shoot = !HasWallBetween(unit.Position, nearestEnemy.Value.Position);
+            var willHit = BulletsWillHit(unit);
+
             Debug.Draw(
                 new PlacedText(
-                    targetPos.X.ToString() + " | " + unit.Position.X,
+                    "Wall: " + (!shoot).ToString() + " | " + willHit.X.ToString() + " | " + jump.ToString(),
                     unit.Position.AsFloat(),
                     TextAlignment.Center,
                     100,
@@ -321,23 +346,14 @@ namespace AiCup2019
                 )
             );
 
-            var jump = targetPos.Y > unit.Position.Y;
-            if (targetPos.X > unit.Position.X && Game.Level.Tiles[(int)(unit.Position.X + 1)][(int)(unit.Position.Y)] == Tile.Wall)
-                jump = true;
-            if (targetPos.X < unit.Position.X && Game.Level.Tiles[(int)(unit.Position.X - 1)][(int)(unit.Position.Y)] == Tile.Wall)
-                jump = true;
-
-            var shoot = !HasWallBetween(unit.Position, nearestEnemy.Value.Position);
-
-            var willHit = BulletsWillHit(unit);
             return new UnitAction
             {
                 Velocity = willHit.X ? (velocity/2): velocity,
                 Jump = willHit.X || jump,
-                JumpDown =  !willHit.X || !willHit.Y || !jump,
+                JumpDown = !jump,
                 Aim = aim,
                 Shoot = shoot,
-                SwapWeapon = true,
+                SwapWeapon = false,
                 PlantMine = false
             };
         }
