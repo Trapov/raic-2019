@@ -146,6 +146,24 @@ namespace AiCup2019
             VectorsExtensions.Width = Game.Level.Tiles.Length;
         }
 
+        protected virtual LootBox? NearestLoot<T>(Unit unit)
+            where T : Item
+        {
+            LootBox? loot = null;
+            foreach (var lootBox in Game.LootBoxes)
+            {
+                if (lootBox.Item is T)
+                {
+                    if (!loot.HasValue || unit.Position.EuclidianSqr(lootBox.Position) < unit.Position.EuclidianSqr(loot.Value.Position))
+                    {
+                        loot = lootBox;
+                    }
+                }
+            }
+
+            return loot;
+        }
+
         protected virtual Unit? NearestEnemy(Unit unit)
         {
             Unit? nearestEnemy = null;
@@ -161,40 +179,6 @@ namespace AiCup2019
             }
 
             return nearestEnemy;
-        }
-
-        protected virtual LootBox? NearestHealthPack(Unit unit)
-        {
-            LootBox? healthPack = null;
-            foreach (var lootBox in Game.LootBoxes)
-            {
-                if (lootBox.Item is Item.HealthPack)
-                {
-                    if (!healthPack.HasValue || unit.Position.EuclidianSqr(lootBox.Position) < unit.Position.EuclidianSqr(healthPack.Value.Position))
-                    {
-                        healthPack = lootBox;
-                    }
-                }
-            }
-
-            return healthPack;
-        }
-
-        protected virtual LootBox? NearestWeapon(Unit unit)
-        {
-            LootBox? nearestWeapon = null;
-            foreach (var lootBox in Game.LootBoxes)
-            {
-                if (lootBox.Item is Item.Weapon)
-                {
-                    if (!nearestWeapon.HasValue || unit.Position.EuclidianSqr(lootBox.Position) < unit.Position.EuclidianSqr(nearestWeapon.Value.Position))
-                    {
-                        nearestWeapon = lootBox;
-                    }
-                }
-            }
-
-            return nearestWeapon;
         }
 
         protected bool Is(Vec2Double vector, Tile tile) => Game.Level.Tiles[(int)vector.X][(int)vector.Y] == tile;
@@ -217,22 +201,30 @@ namespace AiCup2019
 
         protected bool HasWallBetween(Vec2Double point1, Vec2Double point2)
         {
-            if (point1.IsLeftTo(point2))
+            try
             {
-                foreach (var point in PointsBetween(point1, point2))
+                if (point1.IsLeftTo(point2))
                 {
-                    if (Is(point, Tile.Wall))
-                        return true;
+                    foreach (var point in PointsBetween(point1, point2))
+                    {
+                        if (Is(point, Tile.Wall))
+                            return true;
+                    }
                 }
-            }
-            else
+                else
+                {
+                    foreach (var point in PointsBetween(point2, point1))
+                    {
+                        if (Is(point, Tile.Wall))
+                            return true;
+                    }
+                }
+            } 
+            catch
             {
-                foreach (var point in PointsBetween(point2, point1))
-                {
-                    if (Is(point, Tile.Wall))
-                        return true;
-                }
+                //
             }
+
             return false;
         }
 
@@ -294,8 +286,8 @@ namespace AiCup2019
         public UnitAction GetAction(Unit unit)
         {
             var nearestEnemy = NearestEnemy(unit);
-            var nearestWeapon = NearestWeapon(unit);
-            var healthPack = NearestHealthPack(unit);
+            var nearestWeapon = NearestLoot<Item.Weapon>(unit);
+            var healthPack = NearestLoot<Item.HealthPack>(unit);
 
             Vec2Double targetPos = unit.Position;
             var jump = targetPos.Y > unit.Position.Y;
