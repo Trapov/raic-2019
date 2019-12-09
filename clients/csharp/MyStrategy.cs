@@ -115,10 +115,10 @@ namespace AiCup2019
 
             var (r1,r2,r3,r4) = tuple;
 
-            if(p1.X > r1.X && p1.X > r2.X && p1.X > r3.X && p1.X > r4.X && p2.X > r1.X && p2.X > r2.X && p2.X > r3.X && p2.X > r4.X ) return false;
-            if(p1.X < r1.X && p1.X < r2.X && p1.X < r3.X && p1.X < r4.X && p2.X < r1.X && p2.X < r2.X && p2.X < r3.X && p2.X < r4.X ) return false;
-            if(p1.Y > r1.Y && p1.Y > r2.Y && p1.Y > r3.Y && p1.Y > r4.Y && p2.Y > r1.Y && p2.Y > r2.Y && p2.Y > r3.Y && p2.Y > r4.Y ) return false;
-            if(p1.Y < r1.Y && p1.Y < r2.Y && p1.Y < r3.Y && p1.Y < r4.Y && p2.Y < r1.Y && p2.Y < r2.Y && p2.Y < r3.Y && p2.Y < r4.Y ) return false;
+            if (p1.X > r1.X && p1.X > r2.X && p1.X > r3.X && p1.X > r4.X && p2.X > r1.X && p2.X > r2.X && p2.X > r3.X && p2.X > r4.X ) return false;
+            if (p1.X < r1.X && p1.X < r2.X && p1.X < r3.X && p1.X < r4.X && p2.X < r1.X && p2.X < r2.X && p2.X < r3.X && p2.X < r4.X ) return false;
+            if (p1.Y > r1.Y && p1.Y > r2.Y && p1.Y > r3.Y && p1.Y > r4.Y && p2.Y > r1.Y && p2.Y > r2.Y && p2.Y > r3.Y && p2.Y > r4.Y ) return false;
+            if (p1.Y < r1.Y && p1.Y < r2.Y && p1.Y < r3.Y && p1.Y < r4.Y && p2.Y < r1.Y && p2.Y < r2.Y && p2.Y < r3.Y && p2.Y < r4.Y ) return false;
 
 
             double f1 = (p2.Y-p1.Y)*r1.X + (p1.X-p2.X)*r1.Y + (p2.X*p1.Y-p1.X*p2.Y);
@@ -126,8 +126,8 @@ namespace AiCup2019
             double f3 = (p2.Y-p1.Y)*r3.X + (p1.X-p2.X)*r3.Y + (p2.X*p1.Y-p1.X*p2.Y);
             double f4 = (p2.Y-p1.Y)*r4.X + (p1.X-p2.X)*r4.Y + (p2.X*p1.Y-p1.X*p2.Y);
 
-            if(f1<0 && f2<0 && f3<0 && f4<0) return false;
-            if(f1>0 && f2>0 && f3>0 && f4>0) return false;
+            if (f1<0 && f2<0 && f3<0 && f4<0) return false;
+            if (f1>0 && f2>0 && f3>0 && f4>0) return false;
 
             return true;
 
@@ -197,22 +197,41 @@ namespace AiCup2019
             return nearestWeapon;
         }
 
-        protected bool HasWallBetween(Vec2Double a, Vec2Double b)
-        {
-            var diffX = Math.Ceiling(Math.Abs(a.X - b.X));
+        protected bool Is(Vec2Double vector, Tile tile) => Game.Level.Tiles[(int)vector.X][(int)vector.Y] == tile;
 
-            if (a.IsRightTo(b))
+        protected IEnumerable<Vec2Double> PointsBetween(Vec2Double point1, Vec2Double point2)
+        {
+            var a = point2.Y - point1.Y;
+            var b = 1 / (point2.X - point1.X);
+            var c = (point2.X * point1.Y) - (point1.X * point2.Y);
+
+            for (var x = point1.X; x <= point2.X; x++)
+                yield return new Vec2Double(x, Y(a,b,c,x));
+        }
+
+        protected double Y(double a, double b, double c, double x)
+        {
+            return (a * x + c) * b;
+        }
+
+
+        protected bool HasWallBetween(Vec2Double point1, Vec2Double point2)
+        {
+            if (point1.IsLeftTo(point2))
             {
-                for (var i = 0; i < diffX; i++)
-                    if (Game.Level.Tiles[(int)(b.X + i)][(int)(b.Y)] == Tile.Wall)
+                foreach (var point in PointsBetween(point1, point2))
+                {
+                    if (Is(point, Tile.Wall))
                         return true;
+                }
             }
             else
             {
-                for (var ij = 0; ij < diffX; ij++)
-                    if (Game.Level.Tiles[(int)(b.X - ij)][(int)(b.Y)] == Tile.Wall)
+                foreach (var point in PointsBetween(point2, point1))
+                {
+                    if (Is(point, Tile.Wall))
                         return true;
-
+                }
             }
             return false;
         }
@@ -228,7 +247,7 @@ namespace AiCup2019
         public (bool X, bool Y) BulletsWillHit(Unit unit)
         {
             var list = new List<Line>(); 
-            foreach(var bullet in Game.Bullets)
+            foreach (var bullet in Game.Bullets)
             {
                 var unitFiredBullet = Game.Units.First(p => p.Id == bullet.UnitId);
 
@@ -250,7 +269,7 @@ namespace AiCup2019
                 }
                 else
                 {
-                    if(unitFiredBullet.Position.IsRightTo(bullet.Position))
+                    if (unitFiredBullet.Position.IsRightTo(bullet.Position))
                     {
                         if (unit.Position.IsLeftTo(bullet.Position) && !HasWallBetween(unit.Position, bullet.Position))
                         {
@@ -280,7 +299,7 @@ namespace AiCup2019
 
             Vec2Double targetPos = unit.Position;
             var jump = targetPos.Y > unit.Position.Y;
-            if(healthPack.HasValue && unit.Health < Game.Properties.UnitMaxHealth*0.8)
+            if (healthPack.HasValue && unit.Health < Game.Properties.UnitMaxHealth*0.8)
             {
                 targetPos = healthPack.Value.Position;
                 if (targetPos.X > unit.Position.X && Game.Level.Tiles[(int)(unit.Position.X + 1)][(int)(unit.Position.Y)] == Tile.Wall)
