@@ -185,17 +185,14 @@ namespace AiCup2019
 
         protected IEnumerable<Vec2Double> PointsBetween(Vec2Double point1, Vec2Double point2)
         {
+            static double Y(double a, double b, double c, double x) => (a * x + c) * b;
+
             var a = point2.Y - point1.Y;
             var b = 1 / (point2.X - point1.X);
             var c = (point2.X * point1.Y) - (point1.X * point2.Y);
 
             for (var x = point1.X; x <= point2.X; x++)
                 yield return new Vec2Double(x, Y(a,b,c,x));
-        }
-
-        protected double Y(double a, double b, double c, double x)
-        {
-            return (a * x + c) * b;
         }
 
 
